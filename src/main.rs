@@ -6,8 +6,9 @@ use std::env;
 use regex::Regex;
 use anyhow::{self, Context};
 use std::time::Instant;
+use clearscreen::ClearScreen;
 
-const IRPL_VERS: &'static str = "0.1.3";
+const IRPL_VERS: &'static str = "0.1.4";
 
 fn may_throw(description: String) -> Result<(), std::io::Error> {
     Err(std::io::Error::new(std::io::ErrorKind::Other, description))
@@ -197,7 +198,7 @@ fn main() -> anyhow::Result<()>  {
 
     	let prompt = format!("irpl]>");
 	let cloned_prompt = prompt.clone();  // need to move it into closure
-	let new = command! {
+	let new_repl = command! {
 	    "Enter new repl",
 	    (name:String) => |name: String| {
 		let name = cloned_prompt.clone() + &name;
@@ -211,7 +212,7 @@ fn main() -> anyhow::Result<()>  {
 	//let mut repl = matryoshka(prompt.into())?;
 	let mut repl = Repl::builder()
 	    .prompt(prompt)
-	    .add("new", new)
+	    .add("new", new_repl)
 	    .add("echo", command! {
 		    "Echoes back",
 		    (name: String) => |name| {
@@ -321,6 +322,13 @@ fn main() -> anyhow::Result<()>  {
 		    Ok(CommandStatus::Done)
 		}
 	    })
+            .add("clear", command! {
+                "Clear the screen",
+                () => | | {
+                    ClearScreen::default().clear().expect("failed to clear the screen");
+		    Ok(CommandStatus::Done)
+		}
+            })
 	    .add("say", command! {
 		"Say X",
 		(:f32) => |x| {
