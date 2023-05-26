@@ -6,7 +6,7 @@ use regex::Regex;
 use anyhow::{self, Context};
 
 fn matryoshka(name: String) -> anyhow::Result<Repl<'static>> {
-    let prompt = format!("{}> ", name);
+    let prompt = format!("irpl [{}> ", name);
 
     let cloned_prompt = prompt.clone();  // need to move it into closure
     let new = command! {
@@ -22,6 +22,34 @@ fn matryoshka(name: String) -> anyhow::Result<Repl<'static>> {
     let repl = Repl::builder()
         .prompt(prompt)
         .add("new", new)
+	.add("echo", command! {
+		"Echoes back",
+		(name: String) => |name| {
+		    println!("{}", name);
+		    Ok(CommandStatus::Done)
+		}
+	})
+	.add("add", command! {
+		"Add X to Y",
+		(X:i32, Y:i32) => |x, y| {
+		    println!("{} + {} = {}", x, y, x + y);
+		    Ok(CommandStatus::Done)
+		}
+	})
+	.add("sub", command! {
+		"Sub X from Y",
+		(X:i32, Y:i32) => |x, y| {
+		    println!("{} - {} = {}", x, y, x - y);
+		    Ok(CommandStatus::Done)
+		}
+	})
+        .add("version", command! {
+                "Display current irpl version",
+                () => | | {
+                    println!("irpl v{}",IRPL_VERS);
+		    Ok(CommandStatus::Done)
+		}
+        })
         .build()?;
 
     Ok(repl)
@@ -69,39 +97,12 @@ fn main() -> anyhow::Result<()>  {
     let working_path = get_current_working_dir();
     println!("Work path is: [{}]", working_path.expect("I guess a program can have no working path?").display());
 
-	let mut repl = Repl::builder()
-	    .add("echo", command! {
-		"Echoes back",
-		(name: String) => |name| {
-		    println!("{}", name);
-		    Ok(CommandStatus::Done)
-		}
-	    })
-	    .add("add", command! {
-		"Add X to Y",
-		(X:i32, Y:i32) => |x, y| {
-		    println!("{} + {} = {}", x, y, x + y);
-		    Ok(CommandStatus::Done)
-		}
-	    })
-	    .add("sub", command! {
-		"Sub X from Y",
-		(X:i32, Y:i32) => |x, y| {
-		    println!("{} - {} = {}", x, y, x - y);
-		    Ok(CommandStatus::Done)
-		}
-	    })
-            .add("version", command! {
-                "Display current irpl version",
-                () => | | {
-                    println!("irpl v{}",IRPL_VERS);
-		    Ok(CommandStatus::Done)
-		}
-            })
-	    .build().expect("Failed to create repl");
+    	let prompt = format!("#");
+
+    	//let mut repl = matryoshka("".into())?;
+	let mut repl = matryoshka(prompt.into())?;
 
     	let args: Vec<String> = collect_user_arguments();
-    	//let mut repl = matryoshka("".into())?;
 
     	if check_args_count(&args) {
         	let arg1 = &args[1];
