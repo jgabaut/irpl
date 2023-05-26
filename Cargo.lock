@@ -162,8 +162,8 @@ dependencies = [
 
 [[package]]
 name = "easy-repl"
-version = "0.2.1"
-source = "git+https://github.com/jgabaut/easy-repl#01ba4376ef53c220012dc1b4c4b131269c847798"
+version = "0.2.3"
+source = "git+https://github.com/jgabaut/easy-repl#3e81115c49aef61f2aa3c6191f6b49935a82a84b"
 dependencies = [
  "anyhow",
  "rustyline",
@@ -291,7 +291,7 @@ dependencies = [
 
 [[package]]
 name = "irpl"
-version = "0.1.4"
+version = "0.1.5"
 dependencies = [
  "anyhow",
  "clearscreen",
