@@ -3,8 +3,31 @@ use std::path::PathBuf;
 use std::fs;
 use std::env;
 use regex::Regex;
+use anyhow::{self, Context};
 
-const IRPL_VERS: &'static str = "0.1.1";
+fn matryoshka(name: String) -> anyhow::Result<Repl<'static>> {
+    let prompt = format!("{}> ", name);
+
+    let cloned_prompt = prompt.clone();  // need to move it into closure
+    let new = command! {
+        "Enter new repl",
+        (name:String) => |name: String| {
+            let name = cloned_prompt.clone() + &name;
+            let mut repl = matryoshka(name)?;
+            repl.run()?;
+            Ok(CommandStatus::Done)
+        }
+    };
+
+    let repl = Repl::builder()
+        .prompt(prompt)
+        .add("new", new)
+        .build()?;
+
+    Ok(repl)
+}
+
+const IRPL_VERS: &'static str = "0.1.2";
 
 fn find_file_size(file: &str) -> u64 {
     fs::metadata(file).unwrap().len()
@@ -41,7 +64,7 @@ fn help() {
     println!("Usage: irpl <arg>\n");
 }
 
-fn main() {
+fn main() -> anyhow::Result<()>  {
 
     let working_path = get_current_working_dir();
     println!("Work path is: [{}]", working_path.expect("I guess a program can have no working path?").display());
@@ -78,17 +101,20 @@ fn main() {
 	    .build().expect("Failed to create repl");
 
     	let args: Vec<String> = collect_user_arguments();
+    	//let mut repl = matryoshka("".into())?;
 
     	if check_args_count(&args) {
         	let arg1 = &args[1];
         	//let arg2 = &args[2];
         	println!("Arg1 is a: {:#?}", check_is_file_or_dir(&arg1));
 		println!("Arg1: [{}]",&arg1);
-		repl.run().expect("Critical REPL error");
-		return;
+		repl.run().context("Critical REPL error")?;
+		Ok(())
+
     	} else {
         	println!("Quitting.");
-		return;
+		//TODO: make this thing fail
+		Ok(())
 	}
 
 }
