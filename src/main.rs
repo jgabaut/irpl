@@ -8,7 +8,7 @@ use anyhow::{self, Context};
 use std::time::Instant;
 use clearscreen::ClearScreen;
 
-const IRPL_VERS: &'static str = "0.1.4";
+const IRPL_VERS: &'static str = "0.1.5-devel";
 
 fn may_throw(description: String) -> Result<(), std::io::Error> {
     Err(std::io::Error::new(std::io::ErrorKind::Other, description))
