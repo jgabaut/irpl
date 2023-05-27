@@ -9,7 +9,8 @@ use anyhow::{self, Context};
 use std::time::Instant;
 use clearscreen::ClearScreen;
 use std::collections::HashMap;
-const IRPL_VERS: &'static str = "0.1.7-devel";
+use chrono::Local;
+const IRPL_VERS: &'static str = "0.1.7";
 
 fn may_throw(description: String) -> Result<(), std::io::Error> {
     Err(std::io::Error::new(std::io::ErrorKind::Other, description))
@@ -40,7 +41,7 @@ fn help() {
     println!("Usage: irpl <arg>\n");
 }
 
-fn build_irpl(name: String) -> anyhow::Result<Repl<'static>> {
+fn build_irpl(name: String, load_symbols: &HashMap<String,String>) -> anyhow::Result<Repl> {
     let irpl_start = Instant::now();
     match SystemTime::now().duration_since(SystemTime::UNIX_EPOCH) {
         Ok(_) => (),
@@ -55,7 +56,7 @@ fn build_irpl(name: String) -> anyhow::Result<Repl<'static>> {
         "Enter new repl",
         (name:String) => |name: String| {
             let name = cloned_prompt.clone() + &name;
-            let mut repl = build_irpl(name)?;
+            let mut repl = build_irpl(name, &load_symbols)?;
             println!("irpl - started at {:?}",irpl_start);
             repl.run()?;
             Ok(CommandStatus::Done)
@@ -71,6 +72,22 @@ fn build_irpl(name: String) -> anyhow::Result<Repl<'static>> {
 		    "Echoes back",
 		    (name: String) => |name| {
 			println!("{}", name);
+			Ok(CommandStatus::Done)
+		    }
+	    })
+	    .add("date", command! {
+		    "Echoes current date and time",
+		    () => | | {
+            let curr_date = Local::now();
+            println!("{}", curr_date.format("%Y-%m-%d %H:%M:%S"));
+			Ok(CommandStatus::Done)
+		    }
+	    })
+	    .add("time", command! {
+		    "Echoes current time",
+		    () => | | {
+            let curr_date = Local::now();
+            println!("{}", curr_date.format("%H:%M:%S"));
 			Ok(CommandStatus::Done)
 		    }
 	    })
@@ -159,6 +176,15 @@ fn build_irpl(name: String) -> anyhow::Result<Repl<'static>> {
 		    Ok(CommandStatus::Done)
 		},
 	    })
+        .add("memdump", command! {
+		    "Display irpl_symbols",
+		    () => | | {
+            for (symbol, value) in load_symbols {
+                println!("{symbol}: \"{value}\"");
+            }
+			Ok(CommandStatus::Done)
+		    }
+        })
 	    .add("version", command! {
 		    "Display current irpl version",
 		    () => | | {
@@ -233,6 +259,13 @@ fn build_irpl(name: String) -> anyhow::Result<Repl<'static>> {
 
 	Ok(repl)
 }
+/*
+// Iterate over all symbols and print them.
+for (symbol, value) in &irpl_symbols {
+    println!("{symbol}: \"{value}\"");
+}
+*/
+
 
 fn main() -> anyhow::Result<()>  {
     let main_start = Instant::now();
@@ -252,11 +285,10 @@ fn main() -> anyhow::Result<()>  {
         working_path.as_mut().expect("I guess a program can have no working path?").display().to_string()
     );
 
-    let prompt = format!("[irpl]>");
+    let prompt = format!("irpl ");
 
     //let mut repl = matryoshka("".into())?;
 	//let mut repl = matryoshka(prompt.into())?;
-	let mut repl = build_irpl(prompt)?;
 
     let args: Vec<String> = collect_user_arguments();
 
@@ -268,6 +300,7 @@ fn main() -> anyhow::Result<()>  {
         );
         args_num += 1 ;
     }
+    let mut repl = build_irpl(prompt,&irpl_symbols)?;
 
     if check_args_count(&args) {
        	let arg0 = &args[0];
@@ -276,10 +309,6 @@ fn main() -> anyhow::Result<()>  {
 		println!("Program name was: [{}]",&arg0);
         println!("main - started at {:?}",main_start);
         //println!("symbols: irpl_vers is - {:?}",irpl_symbols["irpl_vers"]);
-        // Iterate over all symbols and print them.
-        for (symbol, value) in &irpl_symbols {
-            println!("{symbol}: \"{value}\"");
-        }
 		repl.run().context("Critical REPL error")?;
 		Ok(())
     	} else {
