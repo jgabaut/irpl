@@ -1,4 +1,6 @@
 use easy_repl::{Repl, CommandStatus, Critical, command};
+use std::cell::{Ref, RefMut, RefCell};
+use std::ops::{Deref, DerefMut};
 use std::path::PathBuf;
 use std::net::IpAddr;
 use std::fs;
@@ -11,6 +13,49 @@ use clearscreen::ClearScreen;
 use std::collections::HashMap;
 use chrono::Local;
 const IRPL_VERS: &'static str = "0.1.8-devel";
+
+#[derive(Debug, Default)]
+struct Cache {
+	map: RefCell<HashMap<String, String>>,
+}
+
+impl Cache {
+	fn insert(&self, k: String, v: String) {
+		self.map.borrow_mut().insert(k, v);
+	}
+
+	fn get(&self, k: String) -> Option<Ref<String>> {
+	    map_option(self.map.borrow(), |m| m.get(&k))
+	}
+
+	fn get_mut(&self, k: String) -> Option<RefMut<String>> {
+	    map_mut_option(self.map.borrow_mut(), |m| m.get_mut(&k))
+	}
+}
+
+fn map_option<'a, T, F, U>(r: Ref<'a, T>, f: F) -> Option<Ref<'a, U>>
+where
+    F: FnOnce(&'a T) -> Option<&'a U>
+{
+    let stolen = r.deref() as *const T;
+    let ur = f(unsafe { &*stolen }).map(|sr| sr as *const U);
+    match ur {
+        Some(u) => Some(Ref::map(r, |_| unsafe { &*u })),
+        None => None
+    }
+}
+
+fn map_mut_option<'a, T, F, U>(mut r: RefMut<'a, T>, f: F) -> Option<RefMut<'a, U>>
+where
+    F: FnOnce(&'a mut T) -> Option<&'a mut U>
+{
+    let stolen = r.deref_mut() as *mut T;
+    let ur = f(unsafe { &mut *stolen }).map(|sr| sr as *mut U);
+    match ur {
+        Some(u) => Some(RefMut::map(r, |_| unsafe { &mut *u })),
+        None => None
+    }
+}
 
 fn may_throw(description: String) -> Result<(), std::io::Error> {
     Err(std::io::Error::new(std::io::ErrorKind::Other, description))
@@ -41,15 +86,17 @@ fn help() {
     println!("Usage: irpl <arg>\n");
 }
 
-fn build_irpl(name: String, load_symbols: &mut HashMap<String,String>) -> anyhow::Result<Repl> {
+fn build_irpl(name: String, load_symbols: &Cache) -> anyhow::Result<Repl> {
     let irpl_start = Instant::now();
     let irpl_date = Local::now();
     //Fresh reborrow of load_symbols
-    let main_symbols = &mut *load_symbols;
-    let mut irpl_symbols = HashMap::new();
+    let irpl_symbols = Cache::default();
+    let mut outside_x = String::from("Out x");
+    //let mut outside_y = String::from("Out y");
+
 
     // Iterate over load_symbols and copy them
-    for (k, v) in main_symbols {
+    for (k,v) in load_symbols.map.borrow().iter() {
         let k_fmt = format!("{}", k.to_string());
         let v_fmt = format!("{}", v.to_string());
         irpl_symbols.insert(k_fmt.to_string(),v_fmt.to_string());
@@ -59,8 +106,6 @@ fn build_irpl(name: String, load_symbols: &mut HashMap<String,String>) -> anyhow
         "irpl_date".to_string(),
         irpl_date_formatted.to_string()
     );
-    let mut outside_x = String::from("Out x");
-    //let mut outside_y = String::from("Out y");
     let prompt = format!("[{}]> ", name);
     let cloned_prompt = prompt.clone();  // need to move it into closure
 
@@ -68,7 +113,7 @@ fn build_irpl(name: String, load_symbols: &mut HashMap<String,String>) -> anyhow
         "Enter new repl",
         (name:String) => |name: String| {
             let name = cloned_prompt.clone() + &name;
-            let mut repl = build_irpl(name,load_symbols)?;
+            let mut repl = build_irpl(name, load_symbols)?;
             println!("irpl - started at {:?}",irpl_date_formatted);
             repl.run()?;
             Ok(CommandStatus::Done)
@@ -84,19 +129,6 @@ fn build_irpl(name: String, load_symbols: &mut HashMap<String,String>) -> anyhow
 		    "Echoes back",
 		    (: String) => |name| {
 			println!("{}", name);
-			Ok(CommandStatus::Done)
-		    }
-	    })
-	    .add("define", command! {
-		    "Defines <symbol> with <arg> value",
-		    (symbol: String, value: String) => |symbol, value| {
-			println!("{} :: {}", symbol, value);
-            /*
-            irpl_symbols.insert(
-                symbol,
-                value
-            );
-            */
 			Ok(CommandStatus::Done)
 		    }
 	    })
@@ -205,7 +237,7 @@ fn build_irpl(name: String, load_symbols: &mut HashMap<String,String>) -> anyhow
         .add("memdump", command! {
 		    "Display irpl_symbols",
 		    () => | | {
-            for (symbol, value) in &irpl_symbols {
+            for (symbol, value) in irpl_symbols.map.borrow().iter() {
                 println!("{symbol}: \"{value}\"");
             }
 			Ok(CommandStatus::Done)
@@ -294,30 +326,31 @@ for (symbol, value) in &irpl_symbols {
 
 
 fn main() -> anyhow::Result<()>  {
-    let mut main_irpl_symbols = HashMap::<String,String>::new();
+    let main_date = Local::now();
     let main_start_secs = match SystemTime::now().duration_since(SystemTime::UNIX_EPOCH) {
             Ok(n) => n.as_secs(),
             Err(_) => panic!("SystemTime before UNIX EPOCH!"),
     };
-    let main_date = Local::now();
+    let cache = Cache::default();
 
-    main_irpl_symbols.insert(
+
+    cache.insert(
         "irpl_vers".to_string(),
         IRPL_VERS.to_string()
     );
 
-    main_irpl_symbols.insert(
+    cache.insert(
         "main_start_secs".to_string(),
         main_start_secs.to_string()
     );
     let main_date_formatted = format!("{}", main_date.format("%Y-%m-%d %H:%M:%S"));
-    main_irpl_symbols.insert(
+    cache.insert(
         "main_date".to_string(),
         main_date_formatted.to_string()
     );
 
     let mut working_path = get_current_working_dir();
-    main_irpl_symbols.insert(
+    cache.insert(
         "main_workpath".to_string(),
         working_path.as_mut().expect("I guess a program can have no working path?").display().to_string()
     );
@@ -328,13 +361,13 @@ fn main() -> anyhow::Result<()>  {
 
     let mut args_num = 0;
     for arg in &args {
-        main_irpl_symbols.insert(
+        cache.insert(
             (format!("main_arg{}", args_num)).to_string(),
             arg.to_string()
         );
         args_num += 1 ;
     }
-    let mut repl = build_irpl(prompt, &mut main_irpl_symbols)?;
+    let mut repl = build_irpl(prompt, &cache)?;
 
     if check_args_count(&args) {
        	//let arg2 = &args[2];
