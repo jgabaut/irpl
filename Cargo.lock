@@ -350,7 +350,7 @@ dependencies = [
 
 [[package]]
 name = "irpl"
-version = "0.1.7"
+version = "0.1.8-devel"
 dependencies = [
  "anyhow",
  "chrono",

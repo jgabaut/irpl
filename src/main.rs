@@ -10,7 +10,7 @@ use std::time::SystemTime;
 use clearscreen::ClearScreen;
 use std::collections::HashMap;
 use chrono::Local;
-const IRPL_VERS: &'static str = "0.1.7";
+const IRPL_VERS: &'static str = "0.1.8-devel";
 
 fn may_throw(description: String) -> Result<(), std::io::Error> {
     Err(std::io::Error::new(std::io::ErrorKind::Other, description))
@@ -41,12 +41,15 @@ fn help() {
     println!("Usage: irpl <arg>\n");
 }
 
-fn build_irpl(name: String, load_symbols: &HashMap<String,String>) -> anyhow::Result<Repl> {
+fn build_irpl(name: String, load_symbols: &mut HashMap<String,String>) -> anyhow::Result<Repl> {
     let irpl_start = Instant::now();
     let irpl_date = Local::now();
+    //Fresh reborrow of load_symbols
+    let main_symbols = &mut *load_symbols;
     let mut irpl_symbols = HashMap::new();
+
     // Iterate over load_symbols and copy them
-    for (k, v) in load_symbols {
+    for (k, v) in main_symbols {
         let k_fmt = format!("{}", k.to_string());
         let v_fmt = format!("{}", v.to_string());
         irpl_symbols.insert(k_fmt.to_string(),v_fmt.to_string());
@@ -79,8 +82,21 @@ fn build_irpl(name: String, load_symbols: &HashMap<String,String>) -> anyhow::Re
 	    .add("new", new)
 	    .add("echo", command! {
 		    "Echoes back",
-		    (name: String) => |name| {
+		    (: String) => |name| {
 			println!("{}", name);
+			Ok(CommandStatus::Done)
+		    }
+	    })
+	    .add("define", command! {
+		    "Defines <symbol> with <arg> value",
+		    (symbol: String, value: String) => |symbol, value| {
+			println!("{} :: {}", symbol, value);
+            /*
+            irpl_symbols.insert(
+                symbol,
+                value
+            );
+            */
 			Ok(CommandStatus::Done)
 		    }
 	    })
@@ -117,7 +133,7 @@ fn build_irpl(name: String, load_symbols: &HashMap<String,String>) -> anyhow::Re
 	    })
         .add("du", command! {
                 "Shows file size",
-                (arg: PathBuf) => |arg: PathBuf| {
+                (: PathBuf) => |arg: PathBuf| {
         let filepath = format!("{}", arg.as_path().to_string_lossy());
             let re = Regex::new(r"/").unwrap();
                     let filesize = find_file_size(&filepath);
@@ -300,18 +316,13 @@ fn main() -> anyhow::Result<()>  {
         main_date_formatted.to_string()
     );
 
-    //let mut outside_y = String::from("Out y");
     let mut working_path = get_current_working_dir();
-    println!("Work path is: [{}]", working_path.as_mut().expect("I guess a program can have no working path?").display());
     main_irpl_symbols.insert(
         "main_workpath".to_string(),
         working_path.as_mut().expect("I guess a program can have no working path?").display().to_string()
     );
 
     let prompt = format!("irpl ");
-
-    //let mut repl = matryoshka("".into())?;
-	//let mut repl = matryoshka(prompt.into())?;
 
     let args: Vec<String> = collect_user_arguments();
 
@@ -323,7 +334,7 @@ fn main() -> anyhow::Result<()>  {
         );
         args_num += 1 ;
     }
-    let mut repl = build_irpl(prompt, &main_irpl_symbols)?;
+    let mut repl = build_irpl(prompt, &mut main_irpl_symbols)?;
 
     if check_args_count(&args) {
        	//let arg2 = &args[2];
