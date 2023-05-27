@@ -8,8 +8,8 @@ use regex::Regex;
 use anyhow::{self, Context};
 use std::time::Instant;
 use clearscreen::ClearScreen;
-
-const IRPL_VERS: &'static str = "0.1.6";
+use std::collections::HashMap;
+const IRPL_VERS: &'static str = "0.1.7-devel";
 
 fn may_throw(description: String) -> Result<(), std::io::Error> {
     Err(std::io::Error::new(std::io::ErrorKind::Other, description))
@@ -236,25 +236,50 @@ fn build_irpl(name: String) -> anyhow::Result<Repl<'static>> {
 
 fn main() -> anyhow::Result<()>  {
     let main_start = Instant::now();
+    // Type inference lets us omit an explicit type signature (which
+    // would be `HashMap<String,String>` in this example).
+    let mut irpl_symbols = HashMap::new();
+    irpl_symbols.insert(
+        "irpl_vers".to_string(),
+        IRPL_VERS.to_string()
+    );
 
     //let mut outside_y = String::from("Out y");
-    let working_path = get_current_working_dir();
-    println!("Work path is: [{}]", working_path.expect("I guess a program can have no working path?").display());
+    let mut working_path = get_current_working_dir();
+    println!("Work path is: [{}]", working_path.as_mut().expect("I guess a program can have no working path?").display());
+    irpl_symbols.insert(
+        "irpl_workpath".to_string(),
+        working_path.as_mut().expect("I guess a program can have no working path?").display().to_string()
+    );
 
-    	let prompt = format!("[irpl]>");
+    let prompt = format!("[irpl]>");
 
-    	//let mut repl = matryoshka("".into())?;
+    //let mut repl = matryoshka("".into())?;
 	//let mut repl = matryoshka(prompt.into())?;
 	let mut repl = build_irpl(prompt)?;
 
-    	let args: Vec<String> = collect_user_arguments();
+    let args: Vec<String> = collect_user_arguments();
 
-    	if check_args_count(&args) {
-        	let arg0 = &args[0];
-        	//let arg2 = &args[2];
-        	//println!("Arg1 is a: {:#?}", check_is_file_or_dir(&arg1));
-		println!("Arg0: [{}]",&arg0);
-                println!("main - started at {:?}",main_start);
+    let mut args_num = 0;
+    for arg in &args {
+        irpl_symbols.insert(
+            (format!("arg{}", args_num)).to_string(),
+            arg.to_string()
+        );
+        args_num += 1 ;
+    }
+
+    if check_args_count(&args) {
+       	let arg0 = &args[0];
+       	//let arg2 = &args[2];
+       	//println!("Arg1 is a: {:#?}", check_is_file_or_dir(&arg1));
+		println!("Program name was: [{}]",&arg0);
+        println!("main - started at {:?}",main_start);
+        //println!("symbols: irpl_vers is - {:?}",irpl_symbols["irpl_vers"]);
+        // Iterate over all symbols and print them.
+        for (symbol, value) in &irpl_symbols {
+            println!("{symbol}: \"{value}\"");
+        }
 		repl.run().context("Critical REPL error")?;
 		Ok(())
     	} else {
