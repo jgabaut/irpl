@@ -1,15 +1,16 @@
 use easy_repl::{Repl, CommandStatus, Critical, command};
 use std::path::PathBuf;
 use std::net::IpAddr;
-use std::time::SystemTime;
 use std::fs;
 use std::env;
 use regex::Regex;
 use anyhow::{self, Context};
 use std::time::Instant;
+use std::time::SystemTime;
 use clearscreen::ClearScreen;
-
-const IRPL_VERS: &'static str = "0.1.6";
+use std::collections::HashMap;
+use chrono::Local;
+const IRPL_VERS: &'static str = "0.1.7";
 
 fn may_throw(description: String) -> Result<(), std::io::Error> {
     Err(std::io::Error::new(std::io::ErrorKind::Other, description))
@@ -40,12 +41,21 @@ fn help() {
     println!("Usage: irpl <arg>\n");
 }
 
-fn build_irpl(name: String) -> anyhow::Result<Repl<'static>> {
+fn build_irpl(name: String, load_symbols: &HashMap<String,String>) -> anyhow::Result<Repl> {
     let irpl_start = Instant::now();
-    match SystemTime::now().duration_since(SystemTime::UNIX_EPOCH) {
-        Ok(_) => (),
-        Err(_) => panic!("SystemTime before UNIX EPOCH!"),
+    let irpl_date = Local::now();
+    let mut irpl_symbols = HashMap::new();
+    // Iterate over load_symbols and copy them
+    for (k, v) in load_symbols {
+        let k_fmt = format!("{}", k.to_string());
+        let v_fmt = format!("{}", v.to_string());
+        irpl_symbols.insert(k_fmt.to_string(),v_fmt.to_string());
     }
+    let irpl_date_formatted = format!("{}", irpl_date.format("%Y-%m-%d %H:%M:%S"));
+    irpl_symbols.insert(
+        "irpl_date".to_string(),
+        irpl_date_formatted.to_string()
+    );
     let mut outside_x = String::from("Out x");
     //let mut outside_y = String::from("Out y");
     let prompt = format!("[{}]> ", name);
@@ -55,8 +65,8 @@ fn build_irpl(name: String) -> anyhow::Result<Repl<'static>> {
         "Enter new repl",
         (name:String) => |name: String| {
             let name = cloned_prompt.clone() + &name;
-            let mut repl = build_irpl(name)?;
-            println!("irpl - started at {:?}",irpl_start);
+            let mut repl = build_irpl(name,load_symbols)?;
+            println!("irpl - started at {:?}",irpl_date_formatted);
             repl.run()?;
             Ok(CommandStatus::Done)
         }
@@ -71,6 +81,22 @@ fn build_irpl(name: String) -> anyhow::Result<Repl<'static>> {
 		    "Echoes back",
 		    (name: String) => |name| {
 			println!("{}", name);
+			Ok(CommandStatus::Done)
+		    }
+	    })
+	    .add("date", command! {
+		    "Echoes current date and time",
+		    () => | | {
+            let curr_date = Local::now();
+            println!("{}", curr_date.format("%Y-%m-%d %H:%M:%S"));
+			Ok(CommandStatus::Done)
+		    }
+	    })
+	    .add("time", command! {
+		    "Echoes current time",
+		    () => | | {
+            let curr_date = Local::now();
+            println!("{}", curr_date.format("%H:%M:%S"));
 			Ok(CommandStatus::Done)
 		    }
 	    })
@@ -89,22 +115,23 @@ fn build_irpl(name: String) -> anyhow::Result<Repl<'static>> {
 			Ok(CommandStatus::Done)
                     }
 	    })
-            .add("du", command! {
-                    "Shows file size",
-                    (arg: PathBuf) => |arg: PathBuf| {
-			let filepath = format!("{}", arg.as_path().to_string_lossy());
-		        let re = Regex::new(r"/").unwrap();
-                        let filesize = find_file_size(&filepath);
-		        if re.is_match(&filepath) {
-                          //arg is a file
-			  println!("Size for {} is {}", filepath, filesize);
-		        } else {
-                          //arg is a dir
-			  println!("Size for {} is {}", filepath, filesize);
-		        }
-			Ok(CommandStatus::Done)
-                    }
-            })
+        .add("du", command! {
+                "Shows file size",
+                (arg: PathBuf) => |arg: PathBuf| {
+        let filepath = format!("{}", arg.as_path().to_string_lossy());
+            let re = Regex::new(r"/").unwrap();
+                    let filesize = find_file_size(&filepath);
+            if re.is_match(&filepath) {
+                      //arg is a file
+          println!("Size for {} is {}", filepath, filesize);
+            } else {
+                      //arg is a dir
+          println!("Size for {} is {}", filepath, filesize);
+            }
+        Ok(CommandStatus::Done)
+                }
+        })
+
 	    .add("add", command! {
 		    "Add X to Y",
 		    (X:i32, Y:i32) => |x, y| {
@@ -159,6 +186,15 @@ fn build_irpl(name: String) -> anyhow::Result<Repl<'static>> {
 		    Ok(CommandStatus::Done)
 		},
 	    })
+        .add("memdump", command! {
+		    "Display irpl_symbols",
+		    () => | | {
+            for (symbol, value) in &irpl_symbols {
+                println!("{symbol}: \"{value}\"");
+            }
+			Ok(CommandStatus::Done)
+		    }
+        })
 	    .add("version", command! {
 		    "Display current irpl version",
 		    () => | | {
@@ -233,28 +269,65 @@ fn build_irpl(name: String) -> anyhow::Result<Repl<'static>> {
 
 	Ok(repl)
 }
+/*
+// Iterate over all symbols and print them.
+for (symbol, value) in &irpl_symbols {
+    println!("{symbol}: \"{value}\"");
+}
+*/
+
 
 fn main() -> anyhow::Result<()>  {
-    let main_start = Instant::now();
+    let mut main_irpl_symbols = HashMap::<String,String>::new();
+    let main_start_secs = match SystemTime::now().duration_since(SystemTime::UNIX_EPOCH) {
+            Ok(n) => n.as_secs(),
+            Err(_) => panic!("SystemTime before UNIX EPOCH!"),
+    };
+    let main_date = Local::now();
+
+    main_irpl_symbols.insert(
+        "irpl_vers".to_string(),
+        IRPL_VERS.to_string()
+    );
+
+    main_irpl_symbols.insert(
+        "main_start_secs".to_string(),
+        main_start_secs.to_string()
+    );
+    let main_date_formatted = format!("{}", main_date.format("%Y-%m-%d %H:%M:%S"));
+    main_irpl_symbols.insert(
+        "main_date".to_string(),
+        main_date_formatted.to_string()
+    );
 
     //let mut outside_y = String::from("Out y");
-    let working_path = get_current_working_dir();
-    println!("Work path is: [{}]", working_path.expect("I guess a program can have no working path?").display());
+    let mut working_path = get_current_working_dir();
+    println!("Work path is: [{}]", working_path.as_mut().expect("I guess a program can have no working path?").display());
+    main_irpl_symbols.insert(
+        "main_workpath".to_string(),
+        working_path.as_mut().expect("I guess a program can have no working path?").display().to_string()
+    );
 
-    	let prompt = format!("[irpl]>");
+    let prompt = format!("irpl ");
 
-    	//let mut repl = matryoshka("".into())?;
+    //let mut repl = matryoshka("".into())?;
 	//let mut repl = matryoshka(prompt.into())?;
-	let mut repl = build_irpl(prompt)?;
 
-    	let args: Vec<String> = collect_user_arguments();
+    let args: Vec<String> = collect_user_arguments();
 
-    	if check_args_count(&args) {
-        	let arg0 = &args[0];
-        	//let arg2 = &args[2];
-        	//println!("Arg1 is a: {:#?}", check_is_file_or_dir(&arg1));
-		println!("Arg0: [{}]",&arg0);
-                println!("main - started at {:?}",main_start);
+    let mut args_num = 0;
+    for arg in &args {
+        main_irpl_symbols.insert(
+            (format!("main_arg{}", args_num)).to_string(),
+            arg.to_string()
+        );
+        args_num += 1 ;
+    }
+    let mut repl = build_irpl(prompt, &main_irpl_symbols)?;
+
+    if check_args_count(&args) {
+       	//let arg2 = &args[2];
+       	//println!("Arg1 is a: {:#?}", check_is_file_or_dir(&arg1));
 		repl.run().context("Critical REPL error")?;
 		Ok(())
     	} else {
