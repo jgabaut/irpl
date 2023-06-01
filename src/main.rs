@@ -9,6 +9,7 @@ use std::time::Instant;
 use std::time::SystemTime;
 use clearscreen::ClearScreen;
 use std::collections::HashMap;
+use chrono::Local;
 const IRPL_VERS: &'static str = "0.1.8";
 
 fn may_throw(description: String) -> Result<(), std::io::Error> {
@@ -88,23 +89,29 @@ fn build_irpl(name: String, load_symbols: &HashMap<String,String>) -> anyhow::Re
 		    }
 	    })
 	    .add("date", command! {
-		    "Echoes elapsed seconds since UNIX epoch (WIP)",
-		    () => | | {
-            let secs = match SystemTime::now().duration_since(SystemTime::UNIX_EPOCH) {
-                Ok(n) => n.as_secs(),
-                Err(_) => panic!("SystemTime before UNIX EPOCH!"),
-            };
-            println!("{}", secs);
-			Ok(CommandStatus::Done)
-		    }
+		    "Echoes current date and time",
+        () => | | {
+            let curr_date = Local::now();
+                println!("{}", curr_date.format("%Y-%m-%d %H:%M
+:%S"));
+                    Ok(CommandStatus::Done)
+            }
 	    })
-	    .add("time", command! {
+      .add("time", command! {
+        "Echoes current time",
+        () => | | {
+            let curr_date = Local::now();
+                println!("{}", curr_date.format("%H:%M:%S"));
+                Ok(CommandStatus::Done)
+            }
+      })
+	    .add("unixtime", command! {
 		    "Echoes elapsed seconds since UNIX epoch",
 		    () => | | {
             let secs = match SystemTime::now().duration_since(SystemTime::UNIX_EPOCH) {
                 Ok(n) => n.as_secs(),
                 Err(_) => panic!("SystemTime before UNIX EPOCH!"),
-            };
+            }
             println!("{}", secs);
 			Ok(CommandStatus::Done)
 		    }
