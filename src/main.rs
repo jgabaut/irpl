@@ -9,8 +9,7 @@ use std::time::Instant;
 use std::time::SystemTime;
 use clearscreen::ClearScreen;
 use std::collections::HashMap;
-use chrono::Local;
-const IRPL_VERS: &'static str = "0.1.7";
+const IRPL_VERS: &'static str = "0.1.8";
 
 fn may_throw(description: String) -> Result<(), std::io::Error> {
     Err(std::io::Error::new(std::io::ErrorKind::Other, description))
@@ -43,7 +42,12 @@ fn help() {
 
 fn build_irpl(name: String, load_symbols: &HashMap<String,String>) -> anyhow::Result<Repl> {
     let irpl_start = Instant::now();
-    let irpl_date = Local::now();
+    let irpl_start_secs = match SystemTime::now().duration_since(SystemTime::UNIX_EPOCH) {
+            Ok(n) => n.as_secs(),
+            Err(_) => panic!("SystemTime before UNIX EPOCH!"),
+    };
+    //let irpl_date = Local::now();
+    //let irpl_date_formatted = format!("{}", irpl_date.format("%Y-%m-%d %H:%M:%S"));
     let mut irpl_symbols = HashMap::new();
     // Iterate over load_symbols and copy them
     for (k, v) in load_symbols {
@@ -51,10 +55,9 @@ fn build_irpl(name: String, load_symbols: &HashMap<String,String>) -> anyhow::Re
         let v_fmt = format!("{}", v.to_string());
         irpl_symbols.insert(k_fmt.to_string(),v_fmt.to_string());
     }
-    let irpl_date_formatted = format!("{}", irpl_date.format("%Y-%m-%d %H:%M:%S"));
     irpl_symbols.insert(
-        "irpl_date".to_string(),
-        irpl_date_formatted.to_string()
+        "irpl_start_secs".to_string(),
+        irpl_start_secs.to_string()
     );
     let mut outside_x = String::from("Out x");
     //let mut outside_y = String::from("Out y");
@@ -66,7 +69,7 @@ fn build_irpl(name: String, load_symbols: &HashMap<String,String>) -> anyhow::Re
         (name:String) => |name: String| {
             let name = cloned_prompt.clone() + &name;
             let mut repl = build_irpl(name,load_symbols)?;
-            println!("irpl - started at {:?}",irpl_date_formatted);
+            println!("irpl - started at {:?}",irpl_start);
             repl.run()?;
             Ok(CommandStatus::Done)
         }
@@ -85,18 +88,24 @@ fn build_irpl(name: String, load_symbols: &HashMap<String,String>) -> anyhow::Re
 		    }
 	    })
 	    .add("date", command! {
-		    "Echoes current date and time",
+		    "Echoes elapsed seconds since UNIX epoch (WIP)",
 		    () => | | {
-            let curr_date = Local::now();
-            println!("{}", curr_date.format("%Y-%m-%d %H:%M:%S"));
+            let secs = match SystemTime::now().duration_since(SystemTime::UNIX_EPOCH) {
+                Ok(n) => n.as_secs(),
+                Err(_) => panic!("SystemTime before UNIX EPOCH!"),
+            };
+            println!("{}", secs);
 			Ok(CommandStatus::Done)
 		    }
 	    })
 	    .add("time", command! {
-		    "Echoes current time",
+		    "Echoes elapsed seconds since UNIX epoch",
 		    () => | | {
-            let curr_date = Local::now();
-            println!("{}", curr_date.format("%H:%M:%S"));
+            let secs = match SystemTime::now().duration_since(SystemTime::UNIX_EPOCH) {
+                Ok(n) => n.as_secs(),
+                Err(_) => panic!("SystemTime before UNIX EPOCH!"),
+            };
+            println!("{}", secs);
 			Ok(CommandStatus::Done)
 		    }
 	    })
@@ -283,7 +292,8 @@ fn main() -> anyhow::Result<()>  {
             Ok(n) => n.as_secs(),
             Err(_) => panic!("SystemTime before UNIX EPOCH!"),
     };
-    let main_date = Local::now();
+    //let main_date = Local::now();
+    //let main_date_formatted = format!("{}", main_date.format("%Y-%m-%d %H:%M:%S"));
 
     main_irpl_symbols.insert(
         "irpl_vers".to_string(),
@@ -293,11 +303,6 @@ fn main() -> anyhow::Result<()>  {
     main_irpl_symbols.insert(
         "main_start_secs".to_string(),
         main_start_secs.to_string()
-    );
-    let main_date_formatted = format!("{}", main_date.format("%Y-%m-%d %H:%M:%S"));
-    main_irpl_symbols.insert(
-        "main_date".to_string(),
-        main_date_formatted.to_string()
     );
 
     //let mut outside_y = String::from("Out y");
