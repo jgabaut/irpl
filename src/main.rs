@@ -9,8 +9,9 @@ use std::time::Instant;
 use std::time::SystemTime;
 use clearscreen::ClearScreen;
 use std::collections::HashMap;
+use std::cell::RefCell;
 use chrono::Local;
-const IRPL_VERS: &'static str = "0.1.8";
+const IRPL_VERS: &'static str = "0.1.9-devel";
 
 fn may_throw(description: String) -> Result<(), std::io::Error> {
     Err(std::io::Error::new(std::io::ErrorKind::Other, description))
@@ -49,14 +50,14 @@ fn build_irpl(name: String, load_symbols: &HashMap<String,String>) -> anyhow::Re
     };
     //let irpl_date = Local::now();
     //let irpl_date_formatted = format!("{}", irpl_date.format("%Y-%m-%d %H:%M:%S"));
-    let mut irpl_symbols = HashMap::new();
+    let irpl_symbols = RefCell::<HashMap<String, String>>::new(load_symbols.clone());
     // Iterate over load_symbols and copy them
     for (k, v) in load_symbols {
         let k_fmt = format!("{}", k.to_string());
         let v_fmt = format!("{}", v.to_string());
-        irpl_symbols.insert(k_fmt.to_string(),v_fmt.to_string());
+        irpl_symbols.borrow_mut().insert(k_fmt.to_string(),v_fmt.to_string());
     }
-    irpl_symbols.insert(
+    irpl_symbols.borrow_mut().insert(
         "irpl_start_secs".to_string(),
         irpl_start_secs.to_string()
     );
@@ -64,6 +65,8 @@ fn build_irpl(name: String, load_symbols: &HashMap<String,String>) -> anyhow::Re
     //let mut outside_y = String::from("Out y");
     let prompt = format!("[{}]> ", name);
     let cloned_prompt = prompt.clone();  // need to move it into closure
+    let mut defined_clone_symbols = irpl_symbols.borrow().clone();
+    let mut memdump_clone_symbols = irpl_symbols.clone();
 
     let new = command! {
         "Enter new repl",
@@ -85,6 +88,15 @@ fn build_irpl(name: String, load_symbols: &HashMap<String,String>) -> anyhow::Re
 		    "Echoes back",
 		    (name: String) => |name| {
 			println!("{}", name);
+			Ok(CommandStatus::Done)
+		    }
+	    })
+	    .add("define", command! {
+		    "Defines a symbol",
+		    (k: String, v: String) => |k: String, v: String| {
+			println!("Defining: [ {} == {} ]", k, v);
+            defined_clone_symbols.insert(k.to_string(),v.to_string());
+            //*memdump_clone_symbols.borrow_mut() = HashMap::<String,String>::clone(&defined_clone_symbols);
 			Ok(CommandStatus::Done)
 		    }
 	    })
@@ -204,7 +216,7 @@ fn build_irpl(name: String, load_symbols: &HashMap<String,String>) -> anyhow::Re
         .add("memdump", command! {
 		    "Display irpl_symbols",
 		    () => | | {
-            for (symbol, value) in &irpl_symbols {
+            for (symbol, value) in memdump_clone_symbols.borrow().clone() {
                 println!("{symbol}: \"{value}\"");
             }
 			Ok(CommandStatus::Done)
@@ -293,7 +305,8 @@ for (symbol, value) in &irpl_symbols {
 
 
 fn main() -> anyhow::Result<()>  {
-    let mut main_irpl_symbols = HashMap::<String,String>::new();
+    let main_irpl_symbols_map = <HashMap<String,String>>::new();
+    let main_irpl_symbols = RefCell::<HashMap<String,String>>::new(main_irpl_symbols_map);
     let main_start_secs = match SystemTime::now().duration_since(SystemTime::UNIX_EPOCH) {
             Ok(n) => n.as_secs(),
             Err(_) => panic!("SystemTime before UNIX EPOCH!"),
@@ -301,12 +314,12 @@ fn main() -> anyhow::Result<()>  {
     //let main_date = Local::now();
     //let main_date_formatted = format!("{}", main_date.format("%Y-%m-%d %H:%M:%S"));
 
-    main_irpl_symbols.insert(
+    main_irpl_symbols.borrow_mut().insert(
         "irpl_vers".to_string(),
         IRPL_VERS.to_string()
     );
 
-    main_irpl_symbols.insert(
+    main_irpl_symbols.borrow_mut().insert(
         "main_start_secs".to_string(),
         main_start_secs.to_string()
     );
@@ -314,7 +327,7 @@ fn main() -> anyhow::Result<()>  {
     //let mut outside_y = String::from("Out y");
     let mut working_path = get_current_working_dir();
     println!("Work path is: [{}]", working_path.as_mut().expect("I guess a program can have no working path?").display());
-    main_irpl_symbols.insert(
+    main_irpl_symbols.borrow_mut().insert(
         "main_workpath".to_string(),
         working_path.as_mut().expect("I guess a program can have no working path?").display().to_string()
     );
@@ -328,13 +341,15 @@ fn main() -> anyhow::Result<()>  {
 
     let mut args_num = 0;
     for arg in &args {
-        main_irpl_symbols.insert(
+        main_irpl_symbols.borrow_mut().insert(
             (format!("main_arg{}", args_num)).to_string(),
             arg.to_string()
         );
         args_num += 1 ;
     }
-    let mut repl = build_irpl(prompt, &main_irpl_symbols)?;
+    let binding = main_irpl_symbols.borrow_mut();
+    let mut repl = build_irpl(prompt, &binding)?;
+    //let mut repl = build_irpl(prompt, &main_irpl_symbols.borrow_mut())?;
 
     if check_args_count(&args) {
        	//let arg2 = &args[2];
