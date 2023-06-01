@@ -10,7 +10,7 @@ use std::time::SystemTime;
 use clearscreen::ClearScreen;
 use std::collections::HashMap;
 use chrono::Local;
-const IRPL_VERS: &'static str = "0.1.7";
+const IRPL_VERS: &'static str = "0.1.8";
 
 fn may_throw(description: String) -> Result<(), std::io::Error> {
     Err(std::io::Error::new(std::io::ErrorKind::Other, description))
