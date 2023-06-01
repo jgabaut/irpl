@@ -92,9 +92,8 @@ fn build_irpl(name: String, load_symbols: &HashMap<String,String>) -> anyhow::Re
 		    "Echoes current date and time",
         () => | | {
             let curr_date = Local::now();
-                println!("{}", curr_date.format("%Y-%m-%d %H:%M
-:%S"));
-                    Ok(CommandStatus::Done)
+                println!("{}", curr_date.format("%Y-%m-%d %H:%M:%S"));
+                Ok(CommandStatus::Done)
             }
 	    })
       .add("time", command! {
@@ -111,7 +110,7 @@ fn build_irpl(name: String, load_symbols: &HashMap<String,String>) -> anyhow::Re
             let secs = match SystemTime::now().duration_since(SystemTime::UNIX_EPOCH) {
                 Ok(n) => n.as_secs(),
                 Err(_) => panic!("SystemTime before UNIX EPOCH!"),
-            }
+            };
             println!("{}", secs);
 			Ok(CommandStatus::Done)
 		    }
