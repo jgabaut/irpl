@@ -9,8 +9,9 @@ use std::time::Instant;
 use std::time::SystemTime;
 use clearscreen::ClearScreen;
 use std::collections::HashMap;
+use rand::Rng;
 use chrono::Local;
-const IRPL_VERS: &'static str = "0.1.8";
+const IRPL_VERS: &'static str = "0.1.9";
 
 fn may_throw(description: String) -> Result<(), std::io::Error> {
     Err(std::io::Error::new(std::io::ErrorKind::Other, description))
@@ -96,14 +97,14 @@ fn build_irpl(name: String, load_symbols: &HashMap<String,String>) -> anyhow::Re
                 Ok(CommandStatus::Done)
             }
 	    })
-      .add("time", command! {
-        "Echoes current time",
-        () => | | {
-            let curr_date = Local::now();
-                println!("{}", curr_date.format("%H:%M:%S"));
-                Ok(CommandStatus::Done)
-            }
-      })
+        .add("time", command! {
+          "Echoes current time",
+          () => | | {
+              let curr_date = Local::now();
+                  println!("{}", curr_date.format("%H:%M:%S"));
+                  Ok(CommandStatus::Done)
+              }
+        })
 	    .add("unixtime", command! {
 		    "Echoes elapsed seconds since UNIX epoch",
 		    () => | | {
@@ -115,20 +116,37 @@ fn build_irpl(name: String, load_symbols: &HashMap<String,String>) -> anyhow::Re
 			Ok(CommandStatus::Done)
 		    }
 	    })
+	    .add("rand", command! {
+		    "Echoes a random num between the two passed values",
+		    (min: f64, max: f64) => |min: f64, max: f64 | {
+            let mut rng = rand::thread_rng();
+            let mut r: f64 = rng.gen_range(min..max); // generates a float
+            println!("{}", r);
+			Ok(CommandStatus::Done)
+		    }
+	    })
+	    .add("bc", command! {
+		    "Basic calculator",
+		    (expr: String) => |expr: String | {
+            let r = meval::eval_str(expr.to_string()).unwrap();
+            println!("{} == {}", expr, r);
+			Ok(CommandStatus::Done)
+		    }
+	    })
 	    .add("test[-f]", command! {
 		    "Test if arg is file or dir",
 		    (arg: PathBuf) => |arg: PathBuf| {
 		        let file = "File";
 		        let dir = "Directory";
-			let filepath = format!("{}", arg.as_path().to_string_lossy());
+			    let filepath = format!("{}", arg.as_path().to_string_lossy());
 		        let re = Regex::new(r"/").unwrap();
 		        if re.is_match(&filepath) {
-			  println!("{} is a {}", filepath, file);
+			        println!("{} is a {}", filepath, file);
 		        } else {
-			  println!("{} is a {}", filepath, dir);
+			        println!("{} is a {}", filepath, dir);
 		        }
-			Ok(CommandStatus::Done)
-                    }
+			    Ok(CommandStatus::Done)
+            }
 	    })
         .add("du", command! {
                 "Shows file size",
