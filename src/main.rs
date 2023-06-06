@@ -15,14 +15,14 @@ use std::collections::HashMap;
 use rand::Rng;
 use chrono::Local;
 use csurename::Config;
-const IRPL_VERS: &'static str = "0.2.0";
+const IRPL_VERS: &'static str = "0.2.1";
 
 fn may_throw(description: String) -> Result<(), std::io::Error> {
     Err(std::io::Error::new(std::io::ErrorKind::Other, description))
 }
 
 fn try_csurename(description: String) -> Result<(), std::io::Error> {
-    let config = Config::new().unwrap_or_else(|err| {
+    let config = Config::new_filter().unwrap_or_else(|err| {
         eprintln!("[config]: {description} {err}");
         process::exit(1);
     });
@@ -242,8 +242,10 @@ fn build_irpl(name: String, load_symbols: &HashMap<String,String>) -> anyhow::Re
 		"Convert lines to kebab case",
 		() => || {
             let one_sec = time::Duration::from_millis(1000);
-            println!("Using csurename v1.1.0");
-            println!("\n    origin at:     git@github.com/csunibo/csurename.git\n");
+            println!("\nUsing csurename v1.3.1-devel");
+            println!("\n\n    origin at:     git@github.com/csunibo/csurename.git\n");
+            println!("    Parse input according to org rules.\n");
+            println!("    Enter empty line to quit.\n");
             let now = time::Instant::now();
             thread::sleep(one_sec);
             assert!(now.elapsed() >= one_sec);
