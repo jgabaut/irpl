@@ -3,6 +3,9 @@ use std::path::PathBuf;
 use std::net::IpAddr;
 use std::fs;
 use std::env;
+use std::process;
+use std::thread;
+use std::time;
 use regex::Regex;
 use anyhow::{self, Context};
 use std::time::Instant;
@@ -11,11 +14,27 @@ use clearscreen::ClearScreen;
 use std::collections::HashMap;
 use rand::Rng;
 use chrono::Local;
-const IRPL_VERS: &'static str = "0.1.9";
+use csurename::Config;
+const IRPL_VERS: &'static str = "0.2.0";
 
 fn may_throw(description: String) -> Result<(), std::io::Error> {
     Err(std::io::Error::new(std::io::ErrorKind::Other, description))
 }
+
+fn try_csurename(description: String) -> Result<(), std::io::Error> {
+    let config = Config::new().unwrap_or_else(|err| {
+        eprintln!("[config]: {description} {err}");
+        process::exit(1);
+    });
+    if let Err(e) = csurename::run(config) {
+        eprintln!("[csurename]: {description}: {e}");
+        process::exit(1);
+    } else {
+        //We ended the csurename::run() call successfully
+        Ok(())
+    }
+}
+
 
 fn find_file_size(file: &str) -> u64 {
     fs::metadata(file).unwrap().len()
@@ -216,6 +235,22 @@ fn build_irpl(name: String, load_symbols: &HashMap<String,String>) -> anyhow::Re
 			1..=2 => may_throw("Blank cartridge?".into())?,
 			_ => (),
 		    }
+		    Ok(CommandStatus::Done)
+		},
+	    })
+	    .add("csurename", command! {
+		"Convert lines to kebab case",
+		() => || {
+            let one_sec = time::Duration::from_millis(1000);
+            println!("Using csurename v1.1.0");
+            println!("\n    origin at:     git@github.com/csunibo/csurename.git\n");
+            let now = time::Instant::now();
+            thread::sleep(one_sec);
+            assert!(now.elapsed() >= one_sec);
+
+            //May fail or cause damage, from what I saw... read-only filesystem made me trip
+            try_csurename("Error on csurename command.".into()).into_critical()?;
+
 		    Ok(CommandStatus::Done)
 		},
 	    })
