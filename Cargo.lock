@@ -510,7 +510,7 @@ dependencies = [
 
 [[package]]
 name = "irpl"
-version = "0.2.1-b"
+version = "0.2.2"
 dependencies = [
  "anyhow",
  "chrono",
