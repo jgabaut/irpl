@@ -15,7 +15,7 @@ use std::collections::HashMap;
 use rand::Rng;
 use chrono::Local;
 use csurename::Config;
-const IRPL_VERS: &'static str = "0.2.1";
+const IRPL_VERS: &'static str = "0.2.1-b";
 
 fn may_throw(description: String) -> Result<(), std::io::Error> {
     Err(std::io::Error::new(std::io::ErrorKind::Other, description))
