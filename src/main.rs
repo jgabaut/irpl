@@ -142,20 +142,16 @@ fn build_irpl(name: String, load_symbols: &HashMap<String,String>) -> anyhow::Re
 	    .add("bc", command! {
 		    "Basic calculator",
 		    (expr: String) => |expr: String | {
-            let mut read = true;
-            let r = meval::eval_str(expr.to_string()).unwrap_or_else(|err| {
-                eprintln!("bc: Invalid input.     {err}");
-                read = false;
-                -1.0
-            });
-            if read == true {
-                println!("{} == {}", expr, r);
-                Ok(CommandStatus::Done)
-            } else {
-                println!("{} == {}", expr, expr);
-                Ok(CommandStatus::Done)
+            match meval::eval_str(expr.to_string()) {
+                Ok(i) => {
+                    println!("{} == {}", expr, i);
+                },
+                Err(e) => {
+                    eprintln!("bc: {e}");
+                }
+            };
+            Ok(CommandStatus::Done)
             }
-		    }
 	    })
 	    .add("test[-f]", command! {
 		    "Test if arg is file or dir",
