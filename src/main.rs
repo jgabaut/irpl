@@ -15,7 +15,7 @@ use std::collections::HashMap;
 use rand::Rng;
 use chrono::Local;
 use csurename::Config;
-const IRPL_VERS: &'static str = "0.2.1-b";
+const IRPL_VERS: &'static str = "0.2.2";
 
 fn may_throw(description: String) -> Result<(), std::io::Error> {
     Err(std::io::Error::new(std::io::ErrorKind::Other, description))
@@ -33,11 +33,6 @@ fn try_csurename(description: String) -> Result<(), std::io::Error> {
         //We ended the csurename::run() call successfully
         Ok(())
     }
-}
-
-
-fn find_file_size(file: &str) -> u64 {
-    fs::metadata(file).unwrap().len()
 }
 
 fn collect_user_arguments() -> Vec<String> {
@@ -147,10 +142,16 @@ fn build_irpl(name: String, load_symbols: &HashMap<String,String>) -> anyhow::Re
 	    .add("bc", command! {
 		    "Basic calculator",
 		    (expr: String) => |expr: String | {
-            let r = meval::eval_str(expr.to_string()).unwrap();
-            println!("{} == {}", expr, r);
-			Ok(CommandStatus::Done)
-		    }
+            match meval::eval_str(expr.to_string()) {
+                Ok(i) => {
+                    println!("{} == {}", expr, i);
+                },
+                Err(e) => {
+                    eprintln!("bc: {e}");
+                }
+            };
+            Ok(CommandStatus::Done)
+            }
 	    })
 	    .add("test[-f]", command! {
 		    "Test if arg is file or dir",
@@ -170,17 +171,25 @@ fn build_irpl(name: String, load_symbols: &HashMap<String,String>) -> anyhow::Re
         .add("du", command! {
                 "Shows file size",
                 (arg: PathBuf) => |arg: PathBuf| {
-        let filepath = format!("{}", arg.as_path().to_string_lossy());
-            let re = Regex::new(r"/").unwrap();
-                    let filesize = find_file_size(&filepath);
-            if re.is_match(&filepath) {
-                      //arg is a file
-          println!("Size for {} is {}", filepath, filesize);
-            } else {
-                      //arg is a dir
-          println!("Size for {} is {}", filepath, filesize);
-            }
-        Ok(CommandStatus::Done)
+                let filepath = format!("{}", arg.as_path().to_string_lossy());
+
+                let re = Regex::new(r"/").unwrap();
+                match fs::metadata(&filepath) {
+                    Ok(i) => {
+                        let filesize = i.len();
+                        if re.is_match(&filepath) {
+                                  //arg is a file
+                            println!("Size for {} is {}", filepath, filesize);
+                        } else {
+                                  //arg is a dir
+                            println!("Size for {} is {}", filepath, filesize);
+                        }
+                    },
+                    Err(e) => {
+                        eprintln!("du: {}", e);
+                    }
+                };
+                Ok(CommandStatus::Done)
                 }
         })
 
