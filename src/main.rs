@@ -3,6 +3,7 @@ use std::path::PathBuf;
 use std::net::IpAddr;
 use std::fs;
 use std::env;
+use clap::Parser;
 use std::process;
 use std::thread;
 use std::time;
@@ -14,19 +15,58 @@ use clearscreen::ClearScreen;
 use std::collections::HashMap;
 use rand::Rng;
 use chrono::Local;
-use csurename::Config;
-const IRPL_VERS: &'static str = "0.2.2";
+use csurename::RunConfig;
+const IRPL_VERS: &'static str = "0.2.3";
 
 fn may_throw(description: String) -> Result<(), std::io::Error> {
     Err(std::io::Error::new(std::io::ErrorKind::Other, description))
 }
 
 fn try_csurename(description: String) -> Result<(), std::io::Error> {
-    let config = Config::new_filter().unwrap_or_else(|err| {
-        eprintln!("[config]: {description} {err}");
-        process::exit(1);
-    });
-    if let Err(e) = csurename::run(config) {
+    #[derive(Parser, Debug)]
+    #[command(
+    author,
+    version,
+    about,
+    long_about = None,
+    after_help = "Full documentation available here: https://github.com/csunibo/csurename"
+    )]
+    pub struct Args {
+        /// Specifies a target directory, working dir if none
+        target_dir: Option<String>,
+
+        /// Makes renaming recursive, renaming files in subfolders as well
+        #[arg(short, long)]
+        recursive: bool,
+
+        /// Renames directories as well
+        #[arg(short = 'D', long = "dir")]
+        include_dir: bool,
+
+        /// Suppress output
+        #[arg(short, long)]
+        quiet: bool,
+
+        /// Reads lines from stdin and translates them to the given convention in stdout until the first empty line
+        #[arg(short = 'T', long)]
+        text: bool,
+    }
+    let config = Args::parse();
+    let target_dir = config
+        .target_dir
+        .map_or_else(env::current_dir, |p| Ok(PathBuf::from(p)))
+        .expect(
+            "Could not read target directory. Please make sure you have the right permissions.",
+        );
+    let run_config = RunConfig {
+        target_dir: target_dir,
+        recursive: false,
+        include_dir: false,
+        quiet: false,
+        from_stdin: true,
+    };
+
+    if let Err(e) = csurename::run(run_config) {
         eprintln!("[csurename]: {description}: {e}");
         process::exit(1);
     } else {
@@ -251,9 +291,9 @@ fn build_irpl(name: String, load_symbols: &HashMap<String,String>) -> anyhow::Re
 		"Convert lines to kebab case",
 		() => || {
             let one_sec = time::Duration::from_millis(1000);
-            println!("\nUsing csurename v1.3.1-devel");
+            println!("\nUsing csurename v1.3.0");
             println!("\n\n    origin at:     git@github.com/csunibo/csurename.git\n");
-            println!("    Parse input according to org rules.\n");
+            println!("    Parse input according to csunibo org rules for filenames.\n");
             println!("    Enter empty line to quit.\n");
             let now = time::Instant::now();
             thread::sleep(one_sec);
