@@ -290,7 +290,7 @@ dependencies = [
 [[package]]
 name = "csurename"
 version = "1.3.0"
-source = "git+https://github.com/csunibo/csurename#a2c42c41ab0aac987f69a63784252ea095c8e11a"
+source = "git+https://github.com/csunibo/csurename#9696510681932b647183bdf51ce76b5d251cfb51"
 dependencies = [
  "Inflector",
  "clap",
