@@ -12,7 +12,7 @@ chrono = "0.4.26"
 clearscreen = "2.0.1"
 easy-repl = { version = ">=0.2.3", git = "https://github.com/jgabaut/easy-repl" }
 csurename = { version = "1.3.0", git = "https://github.com/csunibo/csurename" }
-regex = "1.9.3"
+regex = "1.9.4"
 meval = "0.2.0"
 rand = "0.8.5"
 clap = "4.3.19"
