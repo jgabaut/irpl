@@ -15,4 +15,4 @@ csurename = { version = "1.3.0", git = "https://github.com/csunibo/csurename" }
 regex = "1.10.3"
 meval = "0.2.0"
 rand = "0.8.5"
-clap = "4.5.1"
+clap = "4.5.4"
